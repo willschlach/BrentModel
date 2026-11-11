@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.vscode/
+
+# Market data and run outputs (vendor-licensed, do not commit)
+data/
+*.state.json
+state.json
+signals.csv
+
+# Confidential source material (do not publish)
+Dump.txt
+Design.pptx
