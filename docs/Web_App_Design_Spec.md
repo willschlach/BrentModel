@@ -170,7 +170,7 @@ Python package (existing)  ->  export / API layer  ->  React app
   backtest, flags              v2: FastAPI + DB        routing, charts, tables
 ```
 
-- **v1:** the Python export script writes `frontend/public/data/latest.json`. The app is fully static.
+- **v1:** the Python export script writes `frontend/public/data/latest.json` (git-ignored, not committed). The app is static and shows "No run data yet" when the file is absent. Moving run data behind Supabase row level security is planned after the sign-in change (see `docs/Auth_and_Roles.md`).
 - **v2:** a small API service serves runs, history and, later, executions/approvals, backed by a database.
 - Monthly run is a scheduled job. The app never recomputes the model in the browser.
 

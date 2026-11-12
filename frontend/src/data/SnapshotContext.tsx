@@ -5,6 +5,7 @@ import { loadSnapshot } from "./api";
 type State =
   | { status: "loading" }
   | { status: "error"; message: string }
+  | { status: "empty" }
   | { status: "ready"; snapshot: RunSnapshot };
 
 const Ctx = createContext<State>({ status: "loading" });
@@ -15,7 +16,10 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     loadSnapshot()
-      .then((snapshot) => !cancelled && setState({ status: "ready", snapshot }))
+      .then((snapshot) => {
+        if (cancelled) return;
+        setState(snapshot ? { status: "ready", snapshot } : { status: "empty" });
+      })
       .catch((e: unknown) =>
         !cancelled &&
         setState({ status: "error", message: e instanceof Error ? e.message : String(e) }),

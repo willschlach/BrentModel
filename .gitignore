@@ -5,6 +5,7 @@ __pycache__/
 
 # Market data and run outputs (vendor-licensed, do not commit)
 /data/
+frontend/public/data/latest.json
 *.state.json
 state.json
 signals.csv

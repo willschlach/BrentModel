@@ -9,5 +9,17 @@ const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 export const supabaseConfigured = Boolean(url && key);
 
 export const supabase: SupabaseClient | null = supabaseConfigured
-  ? createClient(url as string, key as string)
+  ? createClient(url as string, key as string, {
+      auth: {
+        // Keep users signed in across reloads, tabs and browser restarts, and renew the
+        // short-lived access token in the background.
+        persistSession: true,
+        autoRefreshToken: true,
+        // PKCE sends a ?code= in the query string. The default implicit flow would put tokens
+        // in the URL fragment, which the hash router would swallow. There are no email links
+        // in phase 1; detection stays off until a redirect route exists to handle them.
+        flowType: "pkce",
+        detectSessionInUrl: false,
+      },
+    })
   : null;
