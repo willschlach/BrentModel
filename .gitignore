@@ -4,7 +4,7 @@ __pycache__/
 .vscode/
 
 # Market data and run outputs (vendor-licensed, do not commit)
-data/
+/data/
 *.state.json
 state.json
 signals.csv
@@ -12,3 +12,11 @@ signals.csv
 # Confidential source material (do not publish)
 Dump.txt
 Design.pptx
+
+.env
+# Secrets and Supabase local state
+.env.*
+!.env.example
+supabase/.temp/
+supabase/.branches/
+supabase/.env

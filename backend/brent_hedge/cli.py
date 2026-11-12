@@ -1,4 +1,4 @@
-"""Command line entry points.
+"""Command line entry points (run from the backend/ folder).
 
   python -m brent_hedge.cli quality     --synthetic | --data DIR
   python -m brent_hedge.cli checkpoints --synthetic | --data DIR

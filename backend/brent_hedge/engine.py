@@ -15,7 +15,8 @@ class SignalEngine:
         self.momentum = momentum_series(self.nearby, cfg)
         vol = provider.vol
         self.iv = vol["atmf_iv_15m"]
-        self.rr = vol["call_iv_25d"] - vol["put_iv_25d"]  # A6
+        diff = vol["call_iv_25d"] - vol["put_iv_25d"]
+        self.rr = diff if cfg.rr_convention == "call_minus_put" else -diff  # A6
         self._nearby_vals = self.nearby.to_numpy()
 
     def _pos(self, asof) -> int:

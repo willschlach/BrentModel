@@ -44,6 +44,9 @@ class ModelConfig:
     option_type: str = "25d"               # "25d" | "atmf" (backtest pricing)
     allow_collars: bool = True
     skew_lookback_days: int = 1260
+    # A6: "call_minus_put" (default) or "put_minus_call". Resolve with the
+    # worked-example checkpoints once real data is available.
+    rr_convention: str = "call_minus_put"
     skew_threshold_percentile: float = 50.0
     fraction_rounding_pct: float = 5.0
 

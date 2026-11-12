@@ -28,7 +28,7 @@ COLUMNS = {
 
 
 def run(provider: DataProvider, inception, cfg: ModelConfig, state: HedgeState,
-        update_state: bool = True) -> pd.DataFrame:
+        update_state: bool = True, raw: bool = False) -> pd.DataFrame:
     inception = pd.Timestamp(inception)
     eng = SignalEngine(provider, cfg)
     snap = eng.snapshot(inception)
@@ -57,11 +57,17 @@ def run(provider: DataProvider, inception, cfg: ModelConfig, state: HedgeState,
             "instrument": a.instrument, "fut": a.futures_pct, "opt": a.options_pct,
             "col": a.collars_pct, "ifut": a.incr_futures, "iopt": a.incr_options,
             "icol": a.incr_collars,
+            # extras (dropped from the GS-format output unless raw=True)
+            "price": price,
+            "rawtarget": a.min_hr + a.combined_signal * (a.max_hr - a.min_hr),
         })
         if update_state:
             state.set(str(exp_month), cur + a.incremental_hr)
 
-    return pd.DataFrame(rows).rename(columns=COLUMNS)
+    df = pd.DataFrame(rows)
+    if raw:
+        return df
+    return df.drop(columns=["price", "rawtarget"]).rename(columns=COLUMNS)
 
 
 def main():

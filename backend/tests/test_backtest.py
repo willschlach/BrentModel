@@ -100,6 +100,15 @@ class Backtest(unittest.TestCase):
         self.assertGreater(composite_score(df).iloc[0], composite_score(df).iloc[1])
 
 
+class RrConvention(unittest.TestCase):
+    def test_flipping_convention_mirrors_percentile(self):
+        from brent_hedge.engine import SignalEngine
+        t = P.nearby.index[-1]
+        a = SignalEngine(P, ModelConfig()).skew_percentile_at(t)
+        b = SignalEngine(P, ModelConfig(rr_convention="put_minus_call")).skew_percentile_at(t)
+        self.assertAlmostEqual(a + b, 100.0, delta=100.0 / 1260 * 2 + 1e-6)  # ties aside
+
+
 class Targets(unittest.TestCase):
     def test_all_rows_map(self):
         for _, row in load_targets().iterrows():

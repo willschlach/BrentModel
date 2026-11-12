@@ -44,14 +44,15 @@ def checkpoint_search(provider, base: ModelConfig = None) -> pd.DataFrame:
     (valuation in pct points, percentiles in points)."""
     base = base or ModelConfig()
     rows = []
-    for mode, length, target in itertools.product(
-            ["span", "halflife"], [5040, 2520, 1260, 756], [True, False]):
+    for mode, length, target, rr in itertools.product(
+            ["span", "halflife"], [5040, 2520, 1260, 756], [True, False],
+            ["call_minus_put", "put_minus_call"]):
         cfg = replace(base, ema_mode=mode, ema_length_days=length,
-                      valuation_use_target_contract=target)
+                      valuation_use_target_contract=target, rr_convention=rr)
         df = check(provider, cfg)
         err = (df["val_err"].abs().sum() * 100
                + df["iv_pct_err"].abs().sum() + df["skew_pct_err"].abs().sum())
         rows.append({"ema_mode": mode, "ema_length_days": length,
-                     "target_contract": target, "total_abs_err": err,
+                     "target_contract": target, "rr_convention": rr, "total_abs_err": err,
                      "val_err_pts": (df["val_err"].abs() * 100).round(1).tolist()})
     return pd.DataFrame(rows).sort_values("total_abs_err").reset_index(drop=True)
