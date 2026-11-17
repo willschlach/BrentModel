@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ConfigError } from "../auth/ConfigError";
 import { messageFor } from "../lib/authErrors";
@@ -75,7 +75,7 @@ export function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             aria-invalid={invalid === "email"}
             aria-describedby="login-error"
-            disabled={busy}
+           
           />
         </div>
 
@@ -91,7 +91,7 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             aria-invalid={invalid === "password"}
             aria-describedby="login-error"
-            disabled={busy}
+           
           />
         </div>
 
@@ -103,6 +103,7 @@ export function LoginPage() {
         <button type="submit" className="primary" disabled={busy}>
           {busy ? "Signing in…" : "Sign in"}
         </button>
+        <p className="form-alt">New here? <Link to="/signup">Create an account</Link></p>
       </form>
     </main>
   );

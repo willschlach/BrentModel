@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { classifySignInError, type BlockReason, type SignInFailure } from "../lib/authErrors";
 import { readAccessClaims, type AppRole } from "../lib/claims";
+import { classifySignUpError, type SignUpFailure } from "../lib/inviteErrors";
 
 // loading       : the stored session has not been checked yet
 // misconfigured : the Supabase settings are missing from the build
@@ -16,9 +17,19 @@ export type AuthState =
 
 export type SignInResult = { ok: true } | { ok: false; reason: SignInFailure };
 
+// signedIn  : a valid invite code created an active account and a session
+// submitted : no code; a pending account was created and is waiting for approval
+export type SignUpResult =
+  | { ok: true; outcome: "signedIn" | "submitted" }
+  // `detail` is the server's own wording, kept for a weak password because the project may enforce
+  // more than the app checks.
+  | { ok: false; reason: SignUpFailure; detail?: string };
+
 interface AuthApi {
   state: AuthState;
   signIn: (email: string, password: string) => Promise<SignInResult>;
+  /** `code` is optional. With a valid one the person is signed in; without one the request is pending. */
+  signUp: (email: string, password: string, code: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
   /** End the session because the account can no longer use the app, and tell the user why. */
   endSession: (reason: BlockReason) => Promise<void>;
@@ -72,11 +83,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error ? { ok: false, reason: classifySignInError(error) } : { ok: true };
   }, []);
 
+  const signUp = useCallback(async (email: string, password: string, code: string): Promise<SignUpResult> => {
+    if (!supabase) return { ok: false, reason: "unknown" };
+    // Send whatever was typed; the database normalizes it. A code that is not blank must be
+    // judged by the server even if it contains nothing usable, or it would silently become "no code".
+    const trimmed = code.trim();
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: trimmed ? { data: { invite_code: trimmed } } : undefined,
+    });
+    if (error) {
+      const reason = classifySignUpError(error);
+      if (reason === "pending") return { ok: true, outcome: "submitted" };
+      return { ok: false, reason, detail: reason === "weak_password" ? error.message : undefined };
+    }
+    // With email confirmation off, an active account always comes back with a session. No session and
+    // no error means the project still requires confirmation, which this flow does not support.
+    return data.session ? { ok: true, outcome: "signedIn" } : { ok: false, reason: "unknown" };
+  }, []);
+
   const signOut = useCallback(async () => {
     await supabase?.auth.signOut({ scope: "local" });
   }, []);
 
-  const value = useMemo<AuthApi>(() => ({ state, signIn, signOut, endSession }), [state, signIn, signOut, endSession]);
+  const value = useMemo<AuthApi>(() => ({ state, signIn, signUp, signOut, endSession }), [state, signIn, signUp, signOut, endSession]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

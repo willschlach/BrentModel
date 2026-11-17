@@ -122,3 +122,52 @@ button.primary:disabled { opacity: 0.6; cursor: progress; }
 .user-info { display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem; color: #dbe4f5; margin-left: auto; }
 button.link-button { background: transparent; border: 1px solid #8fa3c7; color: #fff; padding: 0.3rem 0.75rem; border-radius: 6px; }
 button.link-button:hover { background: #24365f; }
+.form-alt { margin: 1rem 0 0; font-size: 0.9rem; }
+.field .note { margin: 0; }
+
+/* Role links sit beside the run navigation but must not take its share of the row. */
+.app-header nav.role-nav { flex: 0 0 auto; }
+
+/* Invites */
+.invites { max-width: 70rem; }
+.invite-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem; margin: 1rem 0 0; }
+.invite-form .field { margin: 0; }
+.invite-form select { font: inherit; padding: 0.5rem 0.6rem; border: 1px solid #6b7280; border-radius: 6px; background: #fff; color: var(--fg); }
+.code-box { background: var(--info-bg); color: var(--info-fg); border: 2px solid var(--info-fg); border-radius: 8px; padding: 0.75rem 1.25rem; margin: 1rem 0; max-width: 40rem; }
+.code-box h2 { margin-top: 0; }
+.invite-code { font-size: 1.75rem; letter-spacing: 0.12em; font-weight: 700; user-select: all; }
+.warning { font-weight: 600; }
+.row-actions { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.row-actions button, .code-box button { padding: 0.3rem 0.75rem; border: 1px solid #6b7280; border-radius: 6px; background: #fff; color: var(--fg); }
+.invite-table { width: 100%; border-collapse: collapse; background: var(--card); }
+.invite-table th, .invite-table td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.invite-table th { font-size: 0.85rem; color: var(--muted); }
+.status { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-weight: 600; font-size: 0.85rem; border: 1px solid currentColor; }
+.status-active { background: var(--ok-bg); color: var(--ok-fg); }
+.status-used { background: var(--info-bg); color: var(--info-fg); }
+.status-expired, .status-revoked { background: var(--warn-bg); color: var(--warn-fg); }
+.status-locked { background: var(--crit-bg); color: var(--crit-fg); }
+
+/* Password requirements */
+.checks { list-style: none; margin: -0.25rem 0 1rem; padding: 0; font-size: 0.9rem; }
+.checks li.met { color: var(--ok-fg); font-weight: 600; }
+.checks li.unmet { color: var(--muted); }
+.status-disabled { background: var(--warn-bg); color: var(--warn-fg); }
+.invite-table select { font: inherit; padding: 0.2rem 0.4rem; border: 1px solid #6b7280; border-radius: 6px; background: #fff; color: var(--fg); }
+
+/* Pending count beside the People link */
+.badge { display: inline-block; margin-left: 0.4rem; min-width: 1.4rem; padding: 0 0.4rem; border-radius: 999px; background: #f5b800; color: #14213d; font-size: 0.8rem; font-weight: 700; text-align: center; }
+
+/* People page tabs */
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--line); margin: 0.75rem 0 1rem; }
+.tabs a { padding: 0.5rem 1rem; text-decoration: none; color: var(--fg); border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.tabs a:hover { background: #eef1f6; }
+.tabs a.active { border-bottom-color: var(--accent); font-weight: 600; }
+.people { max-width: 70rem; }
+.flag { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; background: var(--warn-bg); color: var(--warn-fg); border: 1px solid currentColor; }
+.people-table { width: 100%; border-collapse: collapse; background: var(--card); margin-bottom: 1rem; }
+.people-table th, .people-table td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.people-table th { font-size: 0.85rem; color: var(--muted); }
+.people-table select { font: inherit; padding: 0.2rem 0.4rem; border: 1px solid #6b7280; border-radius: 6px; background: #fff; color: var(--fg); }
+.toolbar { display: flex; align-items: center; gap: 1rem; margin: 0.5rem 0; }
+.toolbar button { padding: 0.3rem 0.75rem; border: 1px solid #6b7280; border-radius: 6px; background: #fff; color: var(--fg); }

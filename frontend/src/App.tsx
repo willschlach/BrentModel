@@ -1,8 +1,6 @@
-import type { ReactNode } from "react";
 import {
   createHashRouter,
   Navigate,
-  NavLink,
   Outlet,
   RouterProvider,
   ScrollRestoration,
@@ -15,54 +13,15 @@ import { DecisionPage } from "./pages/DecisionPage";
 import { WhyPage } from "./pages/WhyPage";
 import { DataAuditPage } from "./pages/DataAuditPage";
 import { LoginPage } from "./pages/LoginPage";
-import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { SignUpPage } from "./pages/SignUpPage";
+import { AuthProvider } from "./auth/AuthContext";
+import { PendingCountProvider } from "./people/PendingCount";
+import { RequireRole } from "./auth/RequireRole";
+import { AppHeader, Frame } from "./components/AppHeader";
+import { InvitesPanel } from "./pages/InvitesPanel";
+import { PeoplePage } from "./pages/PeoplePage";
+import { PeopleTab } from "./pages/PeopleTab";
 import { RequireAuth } from "./auth/RequireAuth";
-
-function UserMenu() {
-  const { state, signOut } = useAuth();
-  if (state.status !== "signedIn") return null;
-  return (
-    <div className="user-info">
-      <span>{state.email} · {state.role}</span>
-      <button type="button" className="link-button" onClick={() => void signOut()}>Sign out</button>
-    </div>
-  );
-}
-
-// The header works with or without run data: the navigation and run info need a snapshot,
-// the user menu (and so sign-out) does not.
-function AppHeader({ snapshot }: { snapshot: RunSnapshot | null }) {
-  return (
-    <header className="app-header">
-      <div className="brand">Brent Hedging Model</div>
-      {snapshot && (
-        <nav aria-label="Primary">
-          <NavLink to="/" end>Home</NavLink>
-          <NavLink to="/decision">Decision</NavLink>
-          <NavLink to="/why">Why</NavLink>
-          <NavLink to="/data">Data and audit</NavLink>
-        </nav>
-      )}
-      {snapshot && (
-        <div className="run-info">
-          Run {snapshot.meta.runDate} · {snapshot.meta.dataSource}
-        </div>
-      )}
-      <UserMenu />
-    </header>
-  );
-}
-
-// Page frame for the states that have no run data to show.
-function Frame({ children }: { children: ReactNode }) {
-  return (
-    <>
-      <a href="#main" className="skip-link">Skip to content</a>
-      <AppHeader snapshot={null} />
-      <main id="main" tabIndex={-1}>{children}</main>
-    </>
-  );
-}
 
 function Shell({ snapshot }: { snapshot: RunSnapshot }) {
   const critical = snapshot.flags.filter((f) => f.severity === "critical" && f.scope === "run");
@@ -123,6 +82,27 @@ const DataRoute = () => <DataAuditPage snapshot={useSnapshot()} />;
 // Data router (required for ScrollRestoration). Hash-based so it works on static hosting.
 const router = createHashRouter([
   { path: "/login", element: <LoginPage /> },
+  { path: "/signup", element: <SignUpPage /> },
+  // The old address for the Invites screen.
+  { path: "/invites", element: <Navigate to="/people/invites" replace /> },
+  {
+    // Its own route, not a child of "/": the "/" route only renders its children when run data exists.
+    // The tabs are child routes, so each has an address and a third can be added the same way.
+    path: "/people",
+    element: (
+      <RequireAuth>
+        <RequireRole roles={["devops", "admin"]}>
+          <Frame>
+            <PeoplePage />
+          </Frame>
+        </RequireRole>
+      </RequireAuth>
+    ),
+    children: [
+      { index: true, element: <PeopleTab /> },
+      { path: "invites", element: <InvitesPanel /> },
+    ],
+  },
   {
     path: "/",
     // The snapshot provider sits inside the guard, so run data is only requested after sign-in.
@@ -146,7 +126,9 @@ const router = createHashRouter([
 export default function App() {
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <PendingCountProvider>
+        <RouterProvider router={router} />
+      </PendingCountProvider>
     </AuthProvider>
   );
 }

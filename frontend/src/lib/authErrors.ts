@@ -1,7 +1,7 @@
 // Turns Supabase Auth errors into the reasons the login page explains to people.
 //
 // When the access token hook refuses a token, supabase-js reports status 403, code "unknown",
-// and the hook's message, which starts with a stable code (see the add-auth-foundation design,
+// and the hook's message, which starts with a stable code (see the archived add-auth-foundation design in openspec/changes/archive,
 // D2). So the code is read from the message prefix, not from error.code.
 
 export type BlockReason = "disabled" | "pending" | "no_role";
