@@ -22,7 +22,7 @@ The password reset pages and the link to them SHALL be available only when the r
 - **THEN** a "Forgot password?" link leads to the forgot-password page
 
 ### Requirement: Asking for a reset code
-The forgot-password page SHALL take an email address and ask for a reset code. It SHALL give the same answer whether or not an account exists for that address, and SHALL then take the person to the page where the code is entered.
+The forgot-password page SHALL take an email address and ask for a reset code. It SHALL give the same answer whether or not an account exists for that address, and SHALL then lead the person to the page where the code is entered, with the email already filled in.
 
 #### Scenario: Any email gets the same answer
 - **WHEN** a visitor submits an email address

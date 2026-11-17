@@ -74,7 +74,8 @@ Roles, statuses and the rules around them live in the database. See `docs/Auth_a
    Minimum password length is 8. These match `supabase/config.toml`, which only configures the local stack.
 4. **First devops account.** From `backend/`, run `python -m brent_hedge.bootstrap_devops --email you@example.com`. It asks for a password and confirms the target project before creating anything.
 5. **Invite people.** Sign in as devops, open **Invites**, create a code for an email and a role, and give the code to the person yourself (nothing is emailed). They use it on the **Create an account** page. Someone who signs up without a code becomes a pending request: devops and admins approve or reject it on the **People** page (a count appears beside the header link). To remove any account, for example a test account, use `python -m brent_hedge.remove_user --email <email>` from `backend/` (add `--disable` to keep the account but block access). Deleting an account also deletes its invite.
-6. **Check.** Sign in, create an invite, and sign up with it in a private window. Sign up once with no code and confirm the page says the request is awaiting approval.
+6. **Forgot password (optional).** It is off in production builds until email works. See `docs/Auth_and_Roles.md`, "Forgot password", for the hosted email template, the `VITE_PASSWORD_RESET_ENABLED` switch, and the fallback `python -m brent_hedge.set_password --email <email>` (from `backend/`) for setting a password directly.
+7. **Check.** Sign in, create an invite, and sign up with it in a private window. Sign up once with no code and confirm the page says the request is awaiting approval.
 
 To work locally without touching the hosted project, use the local stack described in `docs/Auth_and_Roles.md`.
 

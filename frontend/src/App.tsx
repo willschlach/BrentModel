@@ -14,6 +14,9 @@ import { WhyPage } from "./pages/WhyPage";
 import { DataAuditPage } from "./pages/DataAuditPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignUpPage } from "./pages/SignUpPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { ResetGate } from "./auth/ResetGate";
 import { AuthProvider } from "./auth/AuthContext";
 import { PendingCountProvider } from "./people/PendingCount";
 import { RequireRole } from "./auth/RequireRole";
@@ -83,6 +86,9 @@ const DataRoute = () => <DataAuditPage snapshot={useSnapshot()} />;
 const router = createHashRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignUpPage /> },
+  // Password reset needs working email, so these two exist only while the feature is switched on.
+  { path: "/forgot-password", element: <ResetGate><ForgotPasswordPage /></ResetGate> },
+  { path: "/reset-password", element: <ResetGate><ResetPasswordPage /></ResetGate> },
   // The old address for the Invites screen.
   { path: "/invites", element: <Navigate to="/people/invites" replace /> },
   {

@@ -35,6 +35,23 @@ Verifying the code signs the person in, and the existing pages redirect a signed
 3. `updateUser({ password })`. If the **server** rejects the password here (for example its own strength rules, or "same as the old one"), the person is already signed in with a valid session. The page switches to a password-only retry (the code field disappears) instead of asking for a new code, which would not work: the code is single use.
 4. On success, `signOut({ scope: 'others' })` ends every other session, since a reset usually means the old password is in doubt, then the person goes to the home page.
 
+> **Spike results (local stack, supabase-js 2.119.0, PKCE client as in the app, emails read from Mailpit).**
+>
+> | Case | What happens |
+> | --- | --- |
+> | Request for an existing account | No error. One email, subject "Your password reset code", a 6-digit code and no link anywhere in the text or HTML. |
+> | Request for an unknown email | No error and **no email sent**, so the page can give one answer for both. |
+> | Asking again immediately | `429`, code `over_email_send_rate_limit`, message "...you can only request this after 0 seconds." (locally `max_frequency` is 1s; the hosted default is 60s). The newest email's code is the valid one. The wording of the app must not repeat the server's number. |
+> | Wrong code, expired code (set 2 hours old), reused code | All three give the same: `403`, code `otp_expired`, "Token has expired or is invalid". So the page cannot tell them apart, and says "incorrect or expired". |
+> | Correct code | `verifyOtp({ email, token, type: 'recovery' })` returns a session. Its token carries `user_role` and `user_status`, so the hook ran. |
+> | New password too short | `422`, code `weak_password`, "Password should be at least 8 characters." |
+> | New password equal to the old one | `422`, code `same_password`, "New password should be different from the old password." |
+> | Valid new password | `updateUser` succeeds; the old password then fails with `invalid_credentials` and the new one signs in. |
+> | `signOut({ scope: 'others' })` after the reset | Succeeds. The other device's `refreshSession` then fails with `refresh_token_not_found`, so its session is gone. |
+> | Disabled and pending accounts | **An email is still sent.** Verifying the correct code is refused by the sign-in hook with `403`, code `unknown`, and the message `ACCOUNT_DISABLED: ...` or `ACCOUNT_PENDING: ...`. No session results, `updateUser` then fails with "Auth session missing!", and the password hash is unchanged in the database. |
+>
+> **Not testable locally**, so assumed until the hosted test: the hourly send limit (`email_sent = 2`) is not enforced by the local mail catcher, and the built-in mailer's refusal of a non-team address. The mapping treats `over_email_send_rate_limit` as "wait" for both the per-address wait and the hourly limit, and treats code `email_address_not_authorized` (or a message containing "not authorized") as "email not available for this address". Both are checked in the hosted rollout task and corrected if they differ.
+
 ### D4. Same answer for every email
 The forgot-password page shows the same confirmation whatever happens on the server for a missing or existing account, because Supabase itself does not reveal it. The only errors surfaced are about delivery, not accounts: the resend limit and "email not available for this address" (the built-in mailer refusing a non-team address). Neither depends on whether an account exists.
 

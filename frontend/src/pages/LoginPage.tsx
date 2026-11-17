@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { ConfigError } from "../auth/ConfigError";
 import { messageFor } from "../lib/authErrors";
 import { safeRedirectPath } from "../lib/redirect";
+import { passwordResetEnabled } from "../lib/features";
 
 export function LoginPage() {
   const { state, signIn } = useAuth();
@@ -103,6 +104,11 @@ export function LoginPage() {
         <button type="submit" className="primary" disabled={busy}>
           {busy ? "Signing in…" : "Sign in"}
         </button>
+        {passwordResetEnabled && (
+          <p className="form-alt">
+            <Link to={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : "/forgot-password"}>Forgot password?</Link>
+          </p>
+        )}
         <p className="form-alt">New here? <Link to="/signup">Create an account</Link></p>
       </form>
     </main>

@@ -2,7 +2,7 @@
 
 Sign-in uses Supabase Auth (email and password). Access is decided in the database: each account has one row in `public.profiles` with a role and a status, and row level security reads that row on every request. The web app only reflects what the database allows.
 
-Built so far (phases 1 to 3): sign-in and sign-out, persistent sessions, the roles and statuses below, the database rules, the first-devops script, invite codes, a public sign-up page that works with or without a code, and the People page where devops and admins approve requests, manage invites, and change who has access. Not built yet: any email (confirmation, forgot password, invite emails) and the items marked "planned". Everything marked "planned" is documented so the design stays consistent.
+Built so far (phases 1 to 3, plus password reset from phase 4): sign-in and sign-out, persistent sessions, the roles and statuses below, the database rules, the first-devops script, invite codes, a public sign-up page that works with or without a code, the People page where devops and admins approve requests, manage invites, and change who has access, and a forgot-password flow that is switched off in production until email works (see "Forgot password"). Not built yet: email confirmation, invite emails, in-app notifications, and the items marked "planned". Everything marked "planned" is documented so the design stays consistent.
 
 ## Roles and statuses
 
@@ -49,7 +49,7 @@ The rules are enforced in the database, so a later screen cannot grant more than
 | Request a data pull from devops | no | yes | n/a | planned |
 | Pull data by hand, configure model settings | no | no | yes | planned |
 | Simulate another role | no | no | yes | planned |
-| Reset a forgotten password | yes | yes | yes | planned (phase 4) |
+| Reset a forgotten password | yes | yes | yes | built; off in production until email works (see "Forgot password") |
 
 Devops headcount: never more than 2 active devops accounts and never fewer than 1. A change that would break either is rejected by the database, whichever client makes it.
 
@@ -113,7 +113,7 @@ Run data is not protected by this yet. The sample `latest.json` has been removed
 | 1 (built) | Login page and sign-out, roles and statuses in Supabase, access token hook, row level security, first devops from the command line. |
 | 2 (built) | Invite codes by hand, the devops Invites screen, the sign-up page, pending requests, the two sign-up gates. |
 | 3 (built) | The People page for devops and admin: the pending requests list (approve and reject, labelled "email not verified") with a count in the header, the people table (role changes, disable and restore), and the Invites screen as a tab, open to admins for their own invites. |
-| 4 | Email delivery of invites, email confirmation, forgot password, notifications, and other refinements. |
+| 4 (started) | Forgot password is built, with a switch that keeps it off in production until email works. Next, in order: email confirmation, invite emails, and in-app notifications. |
 | Later | Run data behind row level security, devops role simulation, manual data pulls and model settings, admin usage analytics, per-role page visibility, admin requests for a data pull, invites for devops accounts. |
 
 ## The People page
@@ -137,6 +137,49 @@ The page has two tabs, each with its own address: **People** (`/people`) and **I
 - A role change takes effect in the database at once. The role shown in that person's header updates when their session next renews, and a disabled person is signed out within about a minute.
 
 **Invites tab.** The invite screen described above. Devops sees every invite; an admin sees and manages only the invites they created.
+
+## Forgot password
+
+A person who has forgotten their password uses a 6-digit code sent by email. There is no reset link: email scanners can open a link and use it up, and the app's sign-in client is not set up to receive one.
+
+**The flow.**
+1. On the sign-in page, **Forgot password?** opens `/forgot-password`. The person enters their email and the page says: "If an account exists for that email, a 6-digit code has been sent." It says exactly this whether or not there is an account, and no email is sent for an address with no account.
+2. **Enter the code** opens `/reset-password` with the email filled in. The person enters the code and a new password twice, with the same live checklist as sign-up. A pasted code with a space or hyphen is fine.
+3. A correct code signs them in with the new password, and every other session of that account is signed out. A wrong, expired, or already-used code all read "incorrect or has expired" (the server cannot tell them apart), and **Send a new code** is on the page. Codes work once and last 10 minutes.
+4. If the code is accepted but the server then rejects the new password (for example it is the same as the old one), the page keeps the person signed in and asks for another password only. A new code is not needed, and would not work.
+
+**Disabled and pending accounts** receive the email but cannot finish: they see the same message as at sign-in ("disabled" or "awaiting approval") and their password is unchanged.
+
+**The switch.** The pages and the link exist only while `VITE_PASSWORD_RESET_ENABLED` allows them. Unset, it is **on in development and off in a production build**; `true` or `false` overrides either. Off means no "Forgot password?" link, and both addresses lead to the sign-in page. To turn it off locally while your `frontend/.env.local` points at the hosted project, add `VITE_PASSWORD_RESET_ENABLED=false`.
+
+**Why it is off in production.** Supabase's built-in mailer only delivers to addresses on your project's team and allows about 2 emails per hour, so it cannot serve real users. Until you add a custom email provider (SMTP), only a team member's own address will receive a code, and anyone else sees "Email is not available for this address yet. Ask an administrator to reset your password."
+
+**Turning it on in the hosted project.** Do these in order:
+1. **Reset password email template.** In the dashboard, Authentication, Email Templates, **Reset password**: set the subject to `Your password reset code` and replace the body with the HTML below. The default template contains a link that does not work with this app, so skip this and people get a useless email.
+
+```html
+<h2>Reset your password</h2>
+<p>Your password reset code is:</p>
+<p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">{{ .Token }}</p>
+<p>Enter it on the reset password page, together with your new password. The code works once and expires in 10 minutes.</p>
+<p>If you did not ask to reset your password, you can ignore this email. Your password has not been changed.</p>
+```
+
+2. **Code lifetime.** Set the email OTP expiration to `600` seconds. It is under Authentication, Sign In / Providers, Email (I have not seen your dashboard and Supabase moves this setting around; search the Authentication settings for "OTP" if you do not see it). It applies to every email code and link on the project, which is fine while the reset is the only email in use.
+3. **Switch.** In Vercel, set `VITE_PASSWORD_RESET_ENABLED=true` for Production (and Preview if you want it there) and redeploy. Vite reads it at build time.
+4. **Test with a team address** (an email on your Supabase team): ask for a code, read the email, finish a reset. Then try an address that is not on the team. It should say email is not available for it yet.
+
+For everyone to receive codes, set up custom SMTP (Authentication, SMTP Settings; Resend, Postmark, SES and others work). After that, only the limits of your provider apply.
+
+**While email is not available,** devops can set a password directly:
+
+```bash
+python -m brent_hedge.set_password --email person@example.com
+```
+
+Run it from `backend/`, like the other scripts. It reads the same repo-root `.env`, shows the project and the account it found, asks for the new password twice (at least 8 characters), and asks before changing anything. `--yes` skips the question, and the `NEW_PASSWORD` environment variable replaces the prompts for automation. It works for an account in any status but does not change the status: a disabled account gets the password and stays disabled. It does not sign out sessions the person already has.
+
+**Local testing** needs no email provider: the local stack's Mailpit (http://127.0.0.1:54324) catches every email, including the reset code. The local template and the 10-minute lifetime are in `supabase/config.toml` and `supabase/templates/recovery.html`.
 
 ## Pending requests: SQL and command line
 
@@ -282,6 +325,8 @@ update public.profiles set status = 'active', role = 'devops'
 where email = 'you@example.com';
 ```
 
+**Someone forgot their password and email is not working.** Use the command in "Forgot password" (`python -m brent_hedge.set_password --email ...`), then give them the new password to change.
+
 **End a person's access right now.**
 
 ```sql
@@ -306,4 +351,4 @@ To run the web app against the local stack instead of the hosted project, set th
 VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_PUBLISHABLE_KEY=<local publishable key> npm run dev
 ```
 
-`supabase/config.toml` configures the local stack: both hooks on, sign-ups on, email confirmation off, and a minimum password length of 8. The hosted project has its own copy of these settings, which must match; see "Project settings (hosted)".
+`supabase/config.toml` configures the local stack: both hooks on, sign-ups on, email confirmation off, a minimum password length of 8, and the reset email as a code that lasts 10 minutes. The hosted project has its own copy of these settings, which must match; see "Project settings (hosted)".

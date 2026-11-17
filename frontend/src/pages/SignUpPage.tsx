@@ -4,7 +4,8 @@ import { useAuth } from "../auth/AuthContext";
 import { ConfigError } from "../auth/ConfigError";
 import { displayInviteCode, isCompleteInviteCode, normalizeInviteCode } from "../lib/inviteCode";
 import { signUpMessage, type SignUpFailure } from "../lib/inviteErrors";
-import { MIN_PASSWORD_LENGTH, passwordChecks } from "../lib/passwordRules";
+import { PasswordChecklist } from "../components/PasswordChecklist";
+import { MIN_PASSWORD_LENGTH } from "../lib/passwordRules";
 
 type Field = "email" | "password" | "repeat" | "code";
 
@@ -53,8 +54,6 @@ export function SignUpPage() {
 
   if (state.status === "misconfigured") return <ConfigError />;
   if (state.status === "signedIn") return <Navigate to="/" replace />;
-
-  const checks = passwordChecks(password, repeat);
 
   function problem(field: Field, message: string) {
     setInvalid(field);
@@ -140,15 +139,7 @@ export function SignUpPage() {
           />
         </div>
 
-        {/* Shown as words, not only color. Not a live region: it would announce on every keystroke. */}
-        <ul id="signup-password-checks" className="checks" aria-label="Password requirements">
-          {checks.map((c) => (
-            <li key={c.id} className={c.met ? "met" : "unmet"}>
-              <span aria-hidden="true">{c.met ? "✓" : "○"}</span> {c.label}
-              <span className="sr-only">{c.met ? " (met)" : " (not met)"}</span>
-            </li>
-          ))}
-        </ul>
+        <PasswordChecklist id="signup-password-checks" password={password} repeat={repeat} />
 
         <div className="field">
           <label htmlFor="signup-code">Invite code (optional)</label>
