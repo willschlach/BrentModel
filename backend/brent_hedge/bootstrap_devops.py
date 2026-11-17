@@ -9,7 +9,7 @@ wins). The secret key bypasses row level security, so this runs only on a truste
 never in the browser or on Vercel. The password is prompted for (it is never taken as an
 argument, which would land in shell history); BOOTSTRAP_PASSWORD may be set for automation.
 
-Uses only the standard library. See openspec/changes/add-auth-foundation/design.md (D6).
+Uses only the standard library. See openspec/changes/archive/2026-11-12-add-auth-foundation/design.md (D6).
 """
 from __future__ import annotations
 
@@ -107,9 +107,11 @@ def _error_text(payload: object) -> str:
 
 
 def create_first_devops(http, email: str, password: str) -> str:
-    """Create the confirmed auth user and its active devops profile. Returns the user id.
+    """Create the confirmed auth user and make it an active devops account. Returns the user id.
 
-    If the profile cannot be created, the auth user is deleted again so nothing is left behind.
+    Creating an auth user fires the database sign-up trigger, which gives every new user a
+    pending member profile. This function then promotes that profile to devops / active. If the
+    promotion fails, the auth user is deleted again so nothing is left behind.
     """
     check_password(password)
 
@@ -126,14 +128,20 @@ def create_first_devops(http, email: str, password: str) -> str:
         raise BootstrapError(f"Could not create the user (HTTP {status}): {_error_text(user)}")
     user_id = user["id"]
 
-    status, payload = http.request("POST", "/rest/v1/profiles",
-                                   {"id": user_id, "email": email, "role": "devops", "status": "active"},
-                                   prefer="return=minimal")
-    if status not in (200, 201, 204):
+    status, payload = http.request("PATCH", f"/rest/v1/profiles?id=eq.{user_id}",
+                                   {"role": "devops", "status": "active"},
+                                   prefer="return=representation")
+    problem = None
+    if status != 200:
+        problem = f"Could not set up the devops profile (HTTP {status}): {_error_text(payload)}."
+    elif not isinstance(payload, list) or len(payload) != 1:
+        problem = ("Could not set up the devops profile: the new user has no profile row to update. "
+                   "Have the database migrations been applied?")
+    if problem:
         del_status, _ = http.request("DELETE", f"/auth/v1/admin/users/{user_id}")
         cleanup = "The new user was removed again." if del_status in (200, 204) else (
             f"WARNING: the new user {user_id} could not be removed (HTTP {del_status}); delete it in the dashboard.")
-        raise BootstrapError(f"Could not create the profile (HTTP {status}): {_error_text(payload)}. {cleanup}")
+        raise BootstrapError(f"{problem} {cleanup}")
     return user_id
 
 

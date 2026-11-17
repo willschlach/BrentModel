@@ -27,7 +27,7 @@ class FakeHttp:
         return self.responses.pop(0)
 
 
-HAPPY = [(200, []), (200, {"id": USER_ID}), (201, None)]
+HAPPY = [(200, []), (200, {"id": USER_ID}), (200, [{"id": USER_ID}])]
 
 
 class Settings(unittest.TestCase):
@@ -74,12 +74,14 @@ class Inputs(unittest.TestCase):
 
 
 class Create(unittest.TestCase):
-    def test_happy_path_creates_user_then_active_devops_profile(self):
+    def test_happy_path_creates_user_then_promotes_its_profile(self):
         http = FakeHttp(HAPPY)
         self.assertEqual(create_first_devops(http, "me@example.com", "long-enough-pw"), USER_ID)
-        self.assertEqual([c[0] for c in http.calls], ["GET", "POST", "POST"])
+        self.assertEqual([c[0] for c in http.calls], ["GET", "POST", "PATCH"])
         self.assertEqual(http.calls[1][2]["email_confirm"], True)
-        self.assertEqual(http.calls[2][2], {"id": USER_ID, "email": "me@example.com", "role": "devops", "status": "active"})
+        self.assertEqual(http.calls[2][1], f"/rest/v1/profiles?id=eq.{USER_ID}")
+        # Only role and status are sent: the sign-up trigger already created the row.
+        self.assertEqual(http.calls[2][2], {"role": "devops", "status": "active"})
 
     def test_stops_at_the_cap_without_creating_anything(self):
         http = FakeHttp([(200, [{"id": "a"}, {"id": "b"}])])
@@ -94,6 +96,14 @@ class Create(unittest.TestCase):
         with self.assertRaises(BootstrapError) as ctx:
             create_first_devops(http, "me@example.com", "long-enough-pw")
         self.assertEqual(http.calls[-1][:2], ("DELETE", f"/auth/v1/admin/users/{USER_ID}"))
+        self.assertIn("removed again", str(ctx.exception))
+
+    def test_missing_profile_row_deletes_the_new_user(self):
+        http = FakeHttp([(200, []), (200, {"id": USER_ID}), (200, []), (200, {})])
+        with self.assertRaises(BootstrapError) as ctx:
+            create_first_devops(http, "me@example.com", "long-enough-pw")
+        self.assertEqual(http.calls[-1][:2], ("DELETE", f"/auth/v1/admin/users/{USER_ID}"))
+        self.assertIn("no profile row", str(ctx.exception))
         self.assertIn("removed again", str(ctx.exception))
 
     def test_failed_cleanup_is_reported_loudly(self):
