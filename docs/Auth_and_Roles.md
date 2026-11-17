@@ -2,7 +2,7 @@
 
 Sign-in uses Supabase Auth (email and password). Access is decided in the database: each account has one row in `public.profiles` with a role and a status, and row level security reads that row on every request. The web app only reflects what the database allows.
 
-Built so far (phase 1): sign-in and sign-out, persistent sessions, the roles and statuses below, the database rules, and the first-devops script. Everything marked "planned" is documented here so the design stays consistent, but is not built yet.
+Built so far (phases 1 to 3): sign-in and sign-out, persistent sessions, the roles and statuses below, the database rules, the first-devops script, invite codes, a public sign-up page that works with or without a code, and the People page where devops and admins approve requests, manage invites, and change who has access. Not built yet: any email (confirmation, forgot password, invite emails) and the items marked "planned". Everything marked "planned" is documented so the design stays consistent.
 
 ## Roles and statuses
 
@@ -19,29 +19,31 @@ One status per account:
 | Status | Meaning | What the person sees at sign-in |
 | --- | --- | --- |
 | `active` | Can use the app. | They get in. |
-| `pending` | Signed up without an invite and is waiting for approval. | "This account is awaiting approval." |
+| `pending` | Signed up without an invite code and is waiting for approval. | "This account is awaiting approval." |
 | `disabled` | Kept on file but cannot use the app. This also covers "removed"; it can be restored. | "This account has been disabled. Contact an administrator." |
 
 A sign-in with correct credentials and no profile row shows "This account has no access. Contact an administrator." A wrong email or password always shows the same "Incorrect email or password." message, so it never reveals whether an account exists.
 
 ## What each role can do
 
-Phase 1 builds sign-in and the database rules. The rules are enforced in the database now, so a later screen cannot grant more than this table allows.
+The rules are enforced in the database, so a later screen cannot grant more than this table allows.
 
 | Capability | Member | Admin | Devops | Status |
 | --- | --- | --- | --- | --- |
 | Sign in, sign out, stay signed in | yes | yes | yes | built |
+| Create an account with an invite code, or ask for access without one | anyone | anyone | anyone | built |
 | Read own profile | yes | yes | yes | built |
 | Read other profiles | no | members and admins | all | built (rules) |
-| Disable or restore a member | no | yes | yes | rules built, screens planned |
-| Approve a pending person | no | yes | yes | rules built, screens planned |
-| Promote a member to admin | no | yes | yes | rules built, screens planned |
-| Demote an admin to member | no | no | yes | rules built, screens planned |
-| Disable or restore an admin or devops | no | no | yes | rules built, screens planned |
+| Create an invite (member or admin) | no | yes | yes | built (People page, Invites tab) |
+| See, revoke, regenerate, or change the role of invites | no | own invites | all | built (People page, Invites tab) |
+| Approve a pending person | no | yes | yes | built (People page) |
+| Reject a pending request (deletes it) | no | yes | yes | built (People page) |
+| Disable or restore a member | no | yes | yes | built (People page) |
+| Promote a member to admin | no | yes | yes | built (People page) |
+| Demote an admin to member | no | no | yes | built (People page) |
+| Disable or restore an admin or devops | no | no | yes | built (People page) |
 | Change own role or status | no | no | no | built |
-| Invite a member or an admin | no | yes | yes | planned (phase 2 and 3) |
-| Invite a devops | no | no | yes | planned (later) |
-| Reject a pending sign-up (deletes the request) | no | yes | yes | planned (phase 3) |
+| Invite a devops | no | no | no | planned (later; devops accounts come from the script) |
 | See selected pages and output | yes | yes | yes | planned |
 | See more pages and usage analytics | no | yes | yes | planned |
 | Request a data pull from devops | no | yes | n/a | planned |
@@ -51,20 +53,56 @@ Phase 1 builds sign-in and the database rules. The rules are enforced in the dat
 
 Devops headcount: never more than 2 active devops accounts and never fewer than 1. A change that would break either is rejected by the database, whichever client makes it.
 
-## Invites and sign-up (planned)
+## Invite codes and sign-up
 
-- **Invite:** an admin or devops enters an email and a role (member or admin). The person gets an email with an invite key. The key is tied to that email, fixes the role, works once, and expires after 24 hours.
-- **Sign-up with a key:** the key, the email, and a password create the account, already approved. A wrong, expired, used, or mismatched key fails with a clear message.
-- **Sign-up without a key:** the account is created as `pending`. The person confirms their email, then an admin or devops approves it (becomes `member`) or rejects it (the request is deleted).
-- **Public sign-up is closed in phase 1.** It will be reopened with a gate that refuses any sign-up that does not carry a valid key or that skips the pending flow. That gate is part of the phase 2 design.
+### Invite codes
+
+A devops user opens Invites, enters an email and a role (member or admin), and gets a code. Nothing is emailed: give the code to the person yourself.
+
+- The code is 8 characters shown as `XXXX-XXXX`, from an alphabet without 0, O, 1, I and L. It is shown **once**, when it is created; if it is lost, regenerate the invite.
+- It is tied to one email, fixes the role, works once, and expires 24 hours after it is created.
+- Only a salted hash is stored. Nobody, including devops and the database owner, can read a code back.
+- After 10 wrong attempts the invite is **locked**. A locked invite rejects even the right code until it is regenerated.
+- There is exactly **one invite per email**, in any status. Inviting an email that already has an unused invite, even a revoked one, reuses it: new code, a fresh 24 hours, the attempt count reset, the revocation cleared, and the role you pick. An email that already has an account cannot be invited, and for a disabled account the message says to restore it instead. Removing an account removes its invite, so that email can be invited again.
+- Status is always one word: `active`, `used`, `disabled`, `expired`, `revoked`, or `locked`. `disabled` is a used invite whose account has been disabled; it goes back to `used` when the account is restored. Revoke works on active, expired, and locked invites. Regenerate works on anything not yet used, revoked ones included, and gives the same invite a fresh code.
+- **Change role:** on the Invites screen the role of an unused, unrevoked invite is a dropdown (member or admin). Changing it keeps the code and the expiry. Used and revoked invites cannot be changed; regenerate a revoked one first.
+- Deleting an account deletes its invite (a used one included). Disabling does not delete it, but its status shows `disabled`.
+- Devops sees every invite. The database also lets an admin create, see, revoke, and regenerate their own invites; that screen arrives in phase 3.
+
+### Signing up
+
+The sign-up page has email, password (at least 8 characters), repeated password, and an optional invite code. Code entry ignores case, spaces, and the hyphen.
+
+- **With a valid code for that email:** an active account with the invite's role is created and the person is signed in at once.
+- **Without a code:** a pending member account is created, the person is told the request is awaiting approval, and they get no session. Until phase 3 an approver uses SQL (below).
+- **With a code that does not check out:** the sign-up is rejected, nothing is created, and the page says why:
+
+| Reason | Message |
+| --- | --- |
+| No invite for the email | There is no invite for this email address. |
+| Wrong code (counts toward the 10) | That invite code is incorrect. |
+| Expired | This invite has expired. Ask for a new code. |
+| Already used | This invite has already been used. |
+| Revoked | This invite was revoked. Ask for a new code. |
+| Locked | This invite is locked after too many wrong attempts. Ask for a new code. |
+| Email already registered | This email is already registered. |
+
+- Only the code decides the outcome. A role or status sent along with a sign-up is ignored.
+- An unfinished code (fewer than 8 characters) is caught in the browser and does not count as an attempt.
+
+### Known limits
+
+- No email is sent and no email is confirmed. Nobody verifies who owns a pending request's email address, so approvers must check out of band that the person asking is who the email says. The People page labels every pending request "email not verified".
+- Sign-up messages say whether an email has an invite or an account. That is accepted for a small, known group.
 
 ## How access is enforced
 
-1. **Sign-in:** after the password is verified, a database function (the custom access token hook) looks up the profile. Active accounts get a token carrying `user_role` and `user_status`. Disabled, pending, and profile-less accounts get no token, and the refusal carries a code the app turns into the messages above. The built-in `role` claim is never touched.
-2. **Every request:** row level security reads the caller's *current* profile, not the token. A disabled or demoted user loses access immediately, even while an older token is still valid (tokens last up to 1 hour).
-3. **Changes to accounts:** a trigger on `profiles` checks the exact change (who is acting, on whom, what changes) and the devops headcount.
-4. **In the browser:** the app signs the user out as soon as it notices the account is no longer active. It checks when the tab regains focus and once a minute while it is visible. The browser is a convenience; the database is the control.
-5. **Stale labels:** the role shown in the header comes from the token, so a role change appears at the next token renewal. The database already uses the new role.
+1. **Sign-up has two gates.** A before-user-created hook gives the clear messages above. A trigger on `auth.users` enforces the same rules in the same transaction as creating the account: a valid code creates an active account and uses up the code, no code creates a pending member, anything else rolls the sign-up back. If the hook is ever off or broken, the trigger still decides, with a generic error message. The trigger also removes the code from the stored sign-up data.
+2. **Sign-in:** after the password is verified, a database function (the custom access token hook) looks up the profile. Active accounts get a token carrying `user_role` and `user_status`. Disabled, pending, and profile-less accounts get no token, and the refusal carries a code the app turns into the messages above. The built-in `role` claim is never touched.
+3. **Every request:** row level security reads the caller's *current* profile, not the token. A disabled or demoted user loses access immediately, even while an older token is still valid (tokens last up to 1 hour). Creating, revoking, and regenerating invites are database functions that check the live role first.
+4. **Changes to accounts:** a trigger on `profiles` checks the exact change (who is acting, on whom, what changes) and the devops headcount.
+5. **In the browser:** the app signs the user out as soon as it notices the account is no longer active. It checks when the tab regains focus and once a minute while it is visible. The browser is a convenience; the database is the control.
+6. **Stale labels:** the role shown in the header comes from the token, so a role change appears at the next token renewal. The database already uses the new role.
 
 Run data is not protected by this yet. The sample `latest.json` has been removed and the app shows "No run data yet". Putting run data behind row level security is the next piece of work after the sign-in phases.
 
@@ -73,10 +111,101 @@ Run data is not protected by this yet. The sample `latest.json` has been removed
 | Phase | Scope |
 | --- | --- |
 | 1 (built) | Login page and sign-out, roles and statuses in Supabase, access token hook, row level security, first devops from the command line. |
-| 2 | Devops screen to invite admins and members; invites table; invite email; sign-up with a key; email confirmation for sign-ups. |
-| 3 | Admin screens: invite, approve or reject pending sign-ups, disable and restore members, promote members. |
-| 4 | Notifications, forgot password, and other refinements. |
-| Later | Run data behind row level security, devops role simulation, manual data pulls and model settings, admin usage analytics, per-role page visibility, admin requests for a data pull. |
+| 2 (built) | Invite codes by hand, the devops Invites screen, the sign-up page, pending requests, the two sign-up gates. |
+| 3 (built) | The People page for devops and admin: the pending requests list (approve and reject, labelled "email not verified") with a count in the header, the people table (role changes, disable and restore), and the Invites screen as a tab, open to admins for their own invites. |
+| 4 | Email delivery of invites, email confirmation, forgot password, notifications, and other refinements. |
+| Later | Run data behind row level security, devops role simulation, manual data pulls and model settings, admin usage analytics, per-role page visibility, admin requests for a data pull, invites for devops accounts. |
+
+## The People page
+
+Devops and admins have a **People** link in the header. When there are pending sign-up requests, a count appears beside it; it refreshes when the window regains focus, about once a minute, and after any action on the page. Members do not see the link, and opening the page address sends them to the home page.
+
+The page has two tabs, each with its own address: **People** (`/people`) and **Invites** (`/people/invites`). The old `/invites` address leads to the Invites tab.
+
+**People tab.** Pending requests come first, oldest first, each marked "email not verified": **Approve** makes the person an active member (one click), **Reject** deletes the request after a confirmation and the person can ask again. Below that, everyone else the viewer may see, sorted devops, admins, members. Your own row is marked "(you)" and has no controls.
+
+| Viewer | Sees | Can do |
+| --- | --- | --- |
+| Devops | everyone | Approve or reject requests. Switch a member or admin between `member` and `admin`. Disable or restore a member, an admin, or another devops account. |
+| Admin | members and admins | Approve or reject requests. Promote a member to `admin`. Disable or restore a member. No controls on other admins. |
+
+- Disabling, rejecting, and every role change ask for a confirmation first.
+- The screen never offers the `devops` role. Devops accounts are created only with the command-line script, so a devops row has no role control (only disable and restore).
+- Approving always gives `member`; promote afterward if needed.
+- Each change is conditional on the state the page showed. If someone else changed the account in the meantime, the screen says so and reloads, and nothing is overwritten (a stale Approve cannot re-enable a person who has since been disabled).
+- The database has the last word. The two devops limits are reported in its own words ("There can be at most 2 active devops accounts.", "There must always be at least 1 active devops account.").
+- A role change takes effect in the database at once. The role shown in that person's header updates when their session next renews, and a disabled person is signed out within about a minute.
+
+**Invites tab.** The invite screen described above. Devops sees every invite; an admin sees and manages only the invites they created.
+
+## Pending requests: SQL and command line
+
+The People page is the normal way to handle requests. These statements and the removal script are for when you cannot use it, and for cleaning up test accounts. Run the SQL in the Supabase SQL editor (or `psql` for the local stack). They run as the database owner, so the account rules for who may act on whom do not apply, but the devops headcount limits still do. Check that you know who the person is before approving: their email is not verified.
+
+### Remove or disable an account from the command line
+
+For rejecting a request, clearing a test account, or switching a real person off, use the script instead of SQL. Run it from `backend/`. It reads the same repo-root `.env` as the first-devops script, shows which project it is about to change and which account it found, and asks before doing anything.
+
+```bash
+# Delete the account (permanent; the person can sign up again). Use for pending requests and test accounts.
+python -m brent_hedge.remove_user --email person@example.com
+
+# Keep the account but block access (reversible). Use for a real person.
+python -m brent_hedge.remove_user --email person@example.com --disable
+```
+
+`--yes` skips the question, and `--env-file PATH` reads another file. The database's rules still apply: the last active devops account cannot be deleted or disabled. **Deleting an account also deletes the invite for its email**, whatever its status, so it disappears from the Invites screen too; this happens in the database, so it holds for the SQL below and the dashboard as well. Invites the person created for others are kept, with no creator shown. Disabling keeps the invite, and its status shows `disabled`. To restore a disabled account, set its status back to `active` (see "Recovery and break-glass steps").
+
+### With SQL instead
+
+The same things in the Supabase SQL editor (or `psql` for the local stack).
+
+List pending requests, oldest first:
+
+```sql
+select email, created_at
+from public.profiles
+where status = 'pending'
+order by created_at;
+```
+
+Approve one (they become an active member and can sign in):
+
+```sql
+update public.profiles
+set status = 'active'
+where email = 'person@example.com' and status = 'pending';
+```
+
+Reject one (deletes the account and the request, so they can ask again):
+
+```sql
+delete from auth.users
+where email = 'person@example.com'
+  and id in (select id from public.profiles where status = 'pending');
+```
+
+Clear out old requests, for example everything pending for more than 30 days:
+
+```sql
+delete from auth.users
+where id in (
+  select id from public.profiles
+  where status = 'pending' and created_at < now() - interval '30 days'
+);
+```
+
+## Project settings (hosted)
+
+These live in the Supabase dashboard under Authentication, and must match `supabase/config.toml`, which only configures the local stack. They need to be set **in this order**, and only after the migrations are deployed:
+
+1. Auth Hooks: set **Before User Created** to `public.hook_before_user_created`. (Custom Access Token stays `public.custom_access_token_hook`.)
+2. Sign In / Providers, Email: turn **Confirm email** off. Nobody confirms email in phase 2, and an invite-gated sign-up does not need it.
+3. Sign In / Providers: turn **Allow new users to sign up** on. Do this last: it is the step that opens the sign-up page to anyone who can reach the app.
+
+Minimum password length stays 8.
+
+To roll back, do the reverse, starting by turning sign-ups off.
 
 ## Creating the first devops account
 
@@ -99,7 +228,7 @@ It prompts for the password (twice), prints the project URL it is about to use, 
 
 1. checks that fewer than 2 active devops accounts exist,
 2. creates an email-confirmed auth user,
-3. creates the matching `profiles` row as `devops` / `active`,
+3. promotes the profile that the database sign-up trigger created for every new user (a pending member) to `devops` / `active`,
 4. deletes the auth user again if step 3 fails, so no half-created account is left behind.
 
 The password must be at least 8 characters. Options:
@@ -129,19 +258,22 @@ If the script cannot be used, create the account by hand.
 2. In the SQL editor, run this with the same email:
 
 ```sql
-insert into public.profiles (id, email, role, status)
-select id, email, 'devops', 'active'
-from auth.users
+update public.profiles
+set role = 'devops', status = 'active'
 where email = 'you@example.com';
 ```
 
-The same database rules apply here: the insert fails if 2 active devops accounts already exist.
+Creating the user already gave it a pending member profile (the sign-up trigger does that), so this is an update, not an insert. The same database rules apply: the update fails if 2 active devops accounts already exist.
 
 ## Recovery and break-glass steps
 
 All of these run in the Supabase dashboard SQL editor (or `psql` for the local stack), which connects as the database owner and always works.
 
-**Nobody can sign in and the hook is the suspect.** Fix the function `public.custom_access_token_hook` in the SQL editor, or restore it from `supabase/migrations/`. Do not simply turn the hook off in Authentication, Hooks: sign-in would then work but the app refuses any token without role claims, so everyone stays locked out.
+**Nobody can sign in and the sign-in hook is the suspect.** Fix the function `public.custom_access_token_hook` in the SQL editor, or restore it from `supabase/migrations/`. Do not simply turn the hook off in Authentication, Hooks: sign-in would then work but the app refuses any token without role claims, so everyone stays locked out.
+
+**Sign-ups are being abused (a flood of pending requests).** In the dashboard, Authentication, Sign In / Providers, turn **Allow new users to sign up** off. Existing users can still sign in. Then clean up with the SQL in "Pending requests".
+
+**Sign-up is broken for everyone.** If the before-user-created hook is the suspect, remove it under Authentication, Auth Hooks: the trigger on `auth.users` still enforces the rules, with a generic error message. If the trigger function is the suspect, replace it with `create or replace function private.handle_new_user()` from a corrected migration. On the local stack the `postgres` role cannot disable or drop triggers on `auth.users` (the table belongs to `supabase_auth_admin`); assume the same on the hosted project, and turn sign-ups off while you fix it.
 
 **You are locked out as the only devops.** Re-activate your profile (the headcount rules still apply):
 
@@ -174,4 +306,4 @@ To run the web app against the local stack instead of the hosted project, set th
 VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_PUBLISHABLE_KEY=<local publishable key> npm run dev
 ```
 
-`supabase/config.toml` configures the local stack. The hosted project has its own copy of these settings, which must match: custom access token hook on (`public.custom_access_token_hook`), public sign-ups off, and a minimum password length of 8.
+`supabase/config.toml` configures the local stack: both hooks on, sign-ups on, email confirmation off, and a minimum password length of 8. The hosted project has its own copy of these settings, which must match; see "Project settings (hosted)".

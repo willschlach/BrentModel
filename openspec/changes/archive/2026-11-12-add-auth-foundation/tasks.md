@@ -40,9 +40,9 @@
 
 ## 7. Hosted rollout and docs
 - [x] 7.1 Write `docs/Auth_and_Roles.md` with the role and status model, the full planned role matrix, the phase plan, and the break-glass steps. Verify against the specs for consistency
-- [ ] 7.2 Apply migrations to the hosted project with `supabase db push`, apply the hook, sign-up, and password settings (via `supabase config push` or the dashboard), and verify with a direct sign-up attempt using the publishable key being refused
-- [ ] 7.3 Run the first devops script against the hosted project, and verify the account can sign in at the deployed or preview URL
-- [ ] 7.4 Add the README steps for auth setup (variables, migrations, script, hook), then verify a clean checkout can follow them
+- [x] 7.2 Apply migrations to the hosted project with `supabase db push`, apply the hook, sign-up, and password settings (via `supabase config push` or the dashboard), and verify with a direct sign-up attempt using the publishable key being refused
+- [x] 7.3 Run the first devops script against the hosted project, and verify the account can sign in at the deployed or preview URL
+- [x] 7.4 Add the README steps for auth setup (variables, migrations, script, hook), then verify a clean checkout can follow them
 - [x] 7.5 Run `npm run build`, `npm run test -- --run`, `supabase test db`, and the backend unit tests, and verify all pass
 
 ## 8. CI/CD

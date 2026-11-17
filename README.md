@@ -66,9 +66,15 @@ Roles, statuses and the rules around them live in the database. See `docs/Auth_a
 
 1. **Variables.** `frontend/.env.local` gets `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. The repo-root `.env` gets `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (the secret key stays on trusted machines only).
 2. **Migrations.** From the repo root, with the project linked, run `supabase db push`.
-3. **Project settings.** In the Supabase dashboard, open Authentication and set: the Custom Access Token hook to `public.custom_access_token_hook` (Hooks), public sign-ups off, and minimum password length 8. These match `supabase/config.toml`, which only configures the local stack.
+3. **Project settings.** In the Supabase dashboard, open Authentication and set these **in this order**, after the migrations are deployed (the full reasoning is in `docs/Auth_and_Roles.md`, "Project settings (hosted)"):
+   1. Auth Hooks: Custom Access Token is `public.custom_access_token_hook`, and Before User Created is `public.hook_before_user_created`.
+   2. Sign In / Providers, Email: **Confirm email** off.
+   3. Sign In / Providers: **Allow new users to sign up** on, last. Until this is on, nobody can reach the sign-up flow; once it is on, anyone can open the sign-up page.
+
+   Minimum password length is 8. These match `supabase/config.toml`, which only configures the local stack.
 4. **First devops account.** From `backend/`, run `python -m brent_hedge.bootstrap_devops --email you@example.com`. It asks for a password and confirms the target project before creating anything.
-5. **Check.** Open the app and sign in. A direct sign-up with the publishable key should be refused.
+5. **Invite people.** Sign in as devops, open **Invites**, create a code for an email and a role, and give the code to the person yourself (nothing is emailed). They use it on the **Create an account** page. Someone who signs up without a code becomes a pending request: devops and admins approve or reject it on the **People** page (a count appears beside the header link). To remove any account, for example a test account, use `python -m brent_hedge.remove_user --email <email>` from `backend/` (add `--disable` to keep the account but block access). Deleting an account also deletes its invite.
+6. **Check.** Sign in, create an invite, and sign up with it in a private window. Sign up once with no code and confirm the page says the request is awaiting approval.
 
 To work locally without touching the hosted project, use the local stack described in `docs/Auth_and_Roles.md`.
 
