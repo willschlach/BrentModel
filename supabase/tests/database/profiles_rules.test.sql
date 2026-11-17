@@ -4,10 +4,13 @@ create extension if not exists pgtap with schema extensions;
 select plan(32);
 
 -- Fixtures. Ids end in a short code: d=devops, a=admin, b=member, f=disabled member, c=pending member.
+-- The sign-up trigger would create a profile for each of these; the fixtures insert their own.
+set local session_replication_role = replica;
 insert into auth.users (id, email, instance_id, aud, role)
 select ('00000000-0000-0000-0000-0000000000' || c)::uuid, c || '@test.local',
        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated'
 from (values ('d1'), ('d2'), ('d3'), ('a1'), ('a2'), ('b1'), ('b2'), ('b3'), ('f1'), ('c1'), ('e1')) as t(c);
+set local session_replication_role = origin;
 
 insert into public.profiles (id, email, role, status) values
   ('00000000-0000-0000-0000-0000000000d1', 'd1@test.local', 'devops', 'active'),
